@@ -7,6 +7,7 @@ By default, when you kill an enemy after the boss has been defeated, every kill 
 
 ## Features
 - Enhanced FasterBossWait features
+    - Whether saved time should be re-added to run timer
     - Whether to use % values or seconds
     - Bonus charge given per HP, Elite status, Miniboss/Champion status
     - Reduction before the boss is killed / outside the teleporter range
@@ -21,3 +22,7 @@ By default, when you kill an enemy after the boss has been defeated, every kill 
     - Focused Convergence rate/range limit (vanilla limits both to 3 stacks)
     - Unlock interactables (after boss kill)
     - Unlock interactables inside void seeds
+
+## Changelog
+- 1.1.0: Added Kill Compensation (per Smxrez's request)
+- 1.0.0: Initial Commit

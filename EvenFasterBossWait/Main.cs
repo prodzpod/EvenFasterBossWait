@@ -16,11 +16,12 @@ namespace EvenFasterBossWait
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "prodzpod";
         public const string PluginName = "FasterBossWait2";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
         public static ManualLogSource Log;
         internal static PluginInfo pluginInfo;
         public static ConfigFile Config;
         public static ConfigEntry<bool> UseFixedTime;
+        public static ConfigEntry<bool> CompensateKills;
         public static ConfigEntry<float> Value;
         public static ConfigEntry<float> ValuePerHP;
         public static ConfigEntry<float> EliteBonus;
@@ -120,6 +121,7 @@ namespace EvenFasterBossWait
             Config = new ConfigFile(System.IO.Path.Combine(Paths.ConfigPath, PluginGUID + ".cfg"), true);
 
             UseFixedTime = Config.Bind("Kills to Time", "Use Fixed Time", true, "If true, value will be seconds instead of percent.");
+            CompensateKills = Config.Bind("Kills to Time", "Compensate Kills", true, "If true, time saved by kills will be added to run timer.");
             Value = Config.Bind("Kills to Time", "Base Value", 1f, "Charge value per kill.");
             ValuePerHP = Config.Bind("Kills to Time", "Additional Value Per HP", 0f, "Charge value per base HP of the enemy, takes elites into account but not ambient level.");
             EliteBonus = Config.Bind("Kills to Time", "Elite Bonus Value", 1f, "Extra charge given for defeating an elite.");

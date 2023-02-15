@@ -79,6 +79,7 @@ namespace EvenFasterBossWait
                     if (!BossKilled[zone]) charge *= Main.PreBossKillPenalty.Value;
                     if (!zone.IsInBounds(report.attackerBody.footPosition)) charge *= Main.OutsideRangePenalty.Value;
                     ChargeCredit[zone] += charge;
+                    if (Main.CompensateKills.Value) Run.instance.SetRunStopwatch(Run.instance.GetRunStopwatch() + charge);
                 }
             };
             BossGroup.onBossGroupDefeatedServer += (group) => 

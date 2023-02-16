@@ -24,5 +24,8 @@ By default, when you kill an enemy after the boss has been defeated, every kill 
     - Unlock interactables inside void seeds
 
 ## Changelog
+- 1.1.3: Bugfix
+- 1.1.2: Fixed logspam on simulacrum
+- 1.1.1: Bugfix, Kill Compensation General Scaling Multiplier
 - 1.1.0: Added Kill Compensation (per Smxrez's request)
 - 1.0.0: Initial Commit

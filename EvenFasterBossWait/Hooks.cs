@@ -1,4 +1,6 @@
-﻿using MonoMod.Cil;
+﻿using HarmonyLib;
+using Mono.Cecil.Cil;
+using MonoMod.Cil;
 using R2API;
 using RoR2;
 using System;
@@ -39,7 +41,7 @@ namespace EvenFasterBossWait
                         if (master == null) continue;
                         Minibosses.Add(master.masterIndex);
                     }
-                    Main.Log.LogDebug("Repopulated miniboss list with " + Minibosses.Count + "elements.");
+                    Main.Log.LogDebug("Repopulated miniboss list with " + Minibosses.Count + " element(s).");
                 }
                 return orig(self);
             };
@@ -48,7 +50,7 @@ namespace EvenFasterBossWait
             On.RoR2.OutsideInteractableLocker.OnDisable += (orig, self) => { if (Main.UnlockInteractables.Value || (Main.UnlockVoidSeeds.Value && self.lockPrefab.name == "PurchaseLockVoid")) return; orig(self); };
             On.RoR2.HoldoutZoneController.OnEnable += (orig, self) => 
             { 
-                orig(self); 
+                if (Run.instance is InfiniteTowerRun) return; // no simulacrum allowed!!!!
                 foreach (var info in Main.HoldoutMultipliers) if (self.gameObject.name.Contains(info.name)) ActiveZones.Add(self, info);
                 if (!ActiveZones.ContainsKey(self)) ActiveZones.Add(self, Main.DefaultHoldoutInfo);
                 BossKilled.Add(self, true);
@@ -62,10 +64,12 @@ namespace EvenFasterBossWait
                 if (ActiveZones[self].areaBoss >= 0) { self.calcRadius += (ref float radius) => { if (BossKilled[self]) radius *= ActiveZones[self].areaBoss / self.baseRadius; }; }
                 if (ActiveZones[self].multBoss >= 0) { self.calcChargeRate += (ref float rate) => { if (BossKilled[self]) rate *= ActiveZones[self].multBoss; }; }
                 self.calcAccumulatedCharge += (ref float charge) => { if (ChargeCredit[self] > 0) { charge += ChargeCredit[self]; ChargeCredit[self] = 0; } };
+                orig(self);
             };
             GlobalEventManager.onCharacterDeathGlobal += (report) =>
             {
-                if (!TeamManager.IsTeamEnemy(TeamIndex.Player, report?.victimBody?.teamComponent?.teamIndex ?? TeamIndex.Player) || (report?.attackerBody?.teamComponent?.teamIndex ?? TeamIndex.Player) != TeamIndex.Player) return;
+                if (report?.victimBody?.teamComponent?.teamIndex == null || report?.attackerBody?.teamComponent?.teamIndex == null) return;
+                if (!TeamManager.IsTeamEnemy(TeamIndex.Player, report.victimBody.teamComponent.teamIndex) || report.attackerBody.teamComponent.teamIndex != TeamIndex.Player) return;
                 foreach (var zone in ActiveZones.Keys)
                 {
                     if (ActiveZones[zone].kill == 0 || report.victimIsBoss || zone.baseChargeDuration <= 0) continue;
@@ -75,16 +79,30 @@ namespace EvenFasterBossWait
                     if (report.victimIsMiniboss()) charge += Main.MinibossBonus.Value;
                     if (report.victimIsChampion) charge += Main.BossBonus.Value;
                     charge *= ActiveZones[zone].kill;
-                    charge *= Main.UseFixedTime.Value ? 1f / zone.baseChargeDuration : 0.01f;
                     if (!BossKilled[zone]) charge *= Main.PreBossKillPenalty.Value;
                     if (!zone.IsInBounds(report.attackerBody.footPosition)) charge *= Main.OutsideRangePenalty.Value;
-                    ChargeCredit[zone] += charge;
-                    if (Main.CompensateKills.Value) Run.instance.SetRunStopwatch(Run.instance.GetRunStopwatch() + charge);
+                    if (charge == 0) return;
+                    ChargeCredit[zone] += charge * (Main.UseFixedTime.Value ? 1f / zone.baseChargeDuration : 0.01f);
+                    if (Main.CompensateKills.Value != 0)
+                    {
+                        if (!Main.UseFixedTime.Value)
+                        {
+                            float rate = 1f / zone.baseChargeDuration;
+                            HoldoutZoneController.CalcChargeRateDelegate calcChargeRate = AccessTools.FieldRefAccess<HoldoutZoneController.CalcChargeRateDelegate>(typeof(HoldoutZoneController), nameof(HoldoutZoneController.calcChargeRate))(zone);
+                            calcChargeRate?.Invoke(ref rate);
+                            charge *= 0.01f / rate;
+                        }
+                        if (Main.GeneralScalingCompensation.Value != 0) charge /= Mathf.Lerp(1 + (ActiveZones[zone].mult * (
+                              Main.Calc(Main.ModePerPerson.Value, Main.ValuePerPerson.Value, Run.instance.participatingPlayerCount)
+                            * Main.Calc(Main.ModePerStage.Value, Main.ValuePerStage.Value, Run.instance.stageClearCount + 1)
+                            * Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount))), 1, Main.GeneralScalingCompensation.Value);
+                        Run.instance.SetRunStopwatch(Run.instance.GetRunStopwatch() + (charge * Main.CompensateKills.Value));
+                    }
                 }
             };
             BossGroup.onBossGroupDefeatedServer += (group) => 
             {
-                if (TeleporterInteraction.instance.bossGroup == group && BossKilled.ContainsKey(TeleporterInteraction.instance.holdoutZoneController))
+                if (TeleporterInteraction.instance?.bossGroup != null && TeleporterInteraction.instance.bossGroup == group && BossKilled.ContainsKey(TeleporterInteraction.instance.holdoutZoneController))
                 {
                     BossKilled[TeleporterInteraction.instance.holdoutZoneController] = true;
                     if (Main.UnlockInteractablesPostBoss.Value && (bool)TeleporterInteraction.instance.outsideInteractableLocker) TeleporterInteraction.instance.outsideInteractableLocker.enabled = false;
@@ -97,28 +115,26 @@ namespace EvenFasterBossWait
                 if (ChargeCredit.ContainsKey(self)) ChargeCredit.Remove(self);
                 orig(self);
             };
-            if (Main.FocusedConvergenceRangeLimit.Value != 3 || Main.FocusedConvergenceRateLimit.Value != 3)
+            if (Main.FocusedConvergenceRateLimit.Value != 3 || Main.FocusedConvergenceRangeLimit.Value != 3)
             {
                 IL.RoR2.HoldoutZoneController.FocusConvergenceController.FixedUpdate += (il) =>
                 {
                     ILCursor c = new ILCursor(il);
                     c.GotoNext(x => x.MatchCall<Mathf>(nameof(Mathf.Min)));
-                    c.Index -= 3;
-                    c.RemoveRange(6); // remove Mathf.min code
+                    c.Remove();
+                    c.Emit(OpCodes.Pop);
                 };
                 if (Main.FocusedConvergenceRateLimit.Value >= 0) IL.RoR2.HoldoutZoneController.FocusConvergenceController.ApplyRate += (il) =>
                 {
                     ILCursor c = new(il);
-                    c.GotoNext(x => x.MatchLdfld(typeof(HoldoutZoneController.FocusConvergenceController), nameof(HoldoutZoneController.FocusConvergenceController.currentFocusConvergenceCount)), x => x.MatchConvR4(), x => x.MatchMul(), x => x.MatchDiv());
-                    c.Index++;
-                    c.EmitDelegate<Func<int, int>>((count) => { return Mathf.Min(count, Main.FocusedConvergenceRateLimit.Value); });
+                    c.GotoNext(MoveType.After, x => x.MatchLdfld(typeof(HoldoutZoneController.FocusConvergenceController), nameof(HoldoutZoneController.FocusConvergenceController.currentFocusConvergenceCount)), x => x.MatchConvR4());
+                    c.EmitDelegate<Func<float, float>>((count) => Mathf.Min(count, Main.FocusedConvergenceRateLimit.Value));
                 };
                 if (Main.FocusedConvergenceRangeLimit.Value >= 0) IL.RoR2.HoldoutZoneController.FocusConvergenceController.ApplyRadius += (il) =>
                 {
                     ILCursor c = new(il);
-                    c.GotoNext(x => x.MatchLdfld(typeof(HoldoutZoneController.FocusConvergenceController), nameof(HoldoutZoneController.FocusConvergenceController.currentFocusConvergenceCount)), x => x.MatchConvR4(), x => x.MatchMul(), x => x.MatchDiv());
-                    c.Index++;
-                    c.EmitDelegate<Func<int, int>>((count) => { return Mathf.Min(count, Main.FocusedConvergenceRangeLimit.Value); });
+                    c.GotoNext(MoveType.After, x => x.MatchLdfld(typeof(HoldoutZoneController.FocusConvergenceController), nameof(HoldoutZoneController.FocusConvergenceController.currentFocusConvergenceCount)), x => x.MatchConvR4());
+                    c.EmitDelegate<Func<float, float>>((count) => Mathf.Min(count, Main.FocusedConvergenceRangeLimit.Value));
                 };
             }
         }

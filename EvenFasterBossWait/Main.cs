@@ -2,6 +2,7 @@
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using R2API.Utils;
+using RoR2;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -9,13 +10,14 @@ namespace EvenFasterBossWait
 {
     [BepInDependency(R2API.R2API.PluginGUID)]
     [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
+    [BepInDependency("com.Nebby.VAPI", BepInDependency.DependencyFlags.SoftDependency)]
     [NetworkCompatibility(CompatibilityLevel.EveryoneMustHaveMod)]
     public class Main : BaseUnityPlugin
     {
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "prodzpod";
         public const string PluginName = "FasterBossWait2";
-        public const string PluginVersion = "1.1.3";
+        public const string PluginVersion = "1.1.4";
         public static ManualLogSource Log;
         internal static PluginInfo pluginInfo;
         public static ConfigFile Config;
@@ -26,6 +28,7 @@ namespace EvenFasterBossWait
         public static ConfigEntry<float> ValuePerHP;
         public static ConfigEntry<float> EliteBonus;
         public static ConfigEntry<float> EliteT2Bonus;
+        public static ConfigEntry<float> VariantBonus;
         public static ConfigEntry<float> MinibossBonus;
         public static ConfigEntry<float> BossBonus;
         public static ConfigEntry<float> PreBossKillPenalty;
@@ -49,6 +52,7 @@ namespace EvenFasterBossWait
         public static ConfigEntry<float> TeleporterArea;
         public static ConfigEntry<float> TeleporterMultBoss;
         public static ConfigEntry<float> TeleporterAreaBoss;
+        public static ConfigEntry<float> TeleporterTimestopArea;
         public static ConfigEntry<float> PrimordialTime;
         public static ConfigEntry<float> PrimordialMult;
         public static ConfigEntry<float> PrimordialKill;
@@ -127,6 +131,7 @@ namespace EvenFasterBossWait
             ValuePerHP = Config.Bind("Kills to Time", "Additional Value Per HP", 0f, "Charge value per base HP of the enemy, takes elites into account but not ambient level.");
             EliteBonus = Config.Bind("Kills to Time", "Elite Bonus Value", 1f, "Extra charge given for defeating an elite.");
             EliteT2Bonus = Config.Bind("Kills to Time", "Elite T2 Bonus Value", 10f, "Extra charge given for defeating a tier 2 elite. stacks with general elite bonus.");
+            VariantBonus = Config.Bind("Kills to Time", "Variant Bonus Value", 1f, "Extra charge given for defeating a variant enemy, multiplied by experience multiplier.");
             MinibossBonus = Config.Bind("Kills to Time", "Miniboss Bonus Value", 2f, "Extra charge given for defeating a miniboss.");
             BossBonus = Config.Bind("Kills to Time", "Boss Bonus Value", 9f, "Extra charge given for defeating a champion.");
             PreBossKillPenalty = Config.Bind("Kills to Time", "Pre Bosskill Penalty", 0f, "Every kill % before the boss is defeated will be multiplied by this amount.");
@@ -153,6 +158,17 @@ namespace EvenFasterBossWait
             TeleporterArea = Config.Bind("Zones", "Teleporter Base Area", 60f, "");
             TeleporterMultBoss = Config.Bind("Zones", "Teleporter Charge Rate post Bosskill", 1f, "");
             TeleporterAreaBoss = Config.Bind("Zones", "Teleporter Base Area post Bosskill", 60f, "");
+            TeleporterTimestopArea = Config.Bind("Zones", "Telepoter Time Stop Area", 12f, "Radius in meters. Set to 0 to disable.");
+            if (TeleporterTimestopArea.Value > 0) On.RoR2.Run.ShouldUpdateRunStopwatch += (orig, self) =>
+            {
+                bool ret = orig(self);
+                if (TeleporterInteraction.instance?.isCharged ?? false && ret)
+                {
+                    foreach (var user in NetworkUser.instancesList) if ((TeleporterInteraction.instance.transform.position - user.GetCurrentBody().corePosition).magnitude > TeleporterTimestopArea.Value) return ret;
+                    return false;
+                }
+                return ret;
+            };
 
             PrimordialTime = Config.Bind("Zones", "Primordial Teleporter Base Charge Time", 90f, "Primordial Teleporter, in case you want Stage 5 to be special.");
             PrimordialMult = Config.Bind("Zones", "Primordial Teleporter Charge Multiplier", 1f, "General Scaling's effect on Primordial Teleporters. (except focused convergence)");

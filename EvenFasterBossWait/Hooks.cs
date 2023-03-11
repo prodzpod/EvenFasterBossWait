@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using BepInEx.Bootstrap;
+using HarmonyLib;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using R2API;
@@ -75,6 +76,7 @@ namespace EvenFasterBossWait
                     if (ActiveZones[zone].kill == 0 || report.victimIsBoss || zone.baseChargeDuration <= 0) continue;
                     float charge = Main.Value.Value + (report.victimBody.baseMaxHealth * Main.ValuePerHP.Value);
                     if (report.victimIsElite) charge += Main.EliteBonus.Value;
+                    if (Chainloader.PluginInfos.ContainsKey("com.Nebby.VAPI")) charge += CheckVariant(report.victimBody);
                     if (report.victimBody.affixes().Any(x => x.isT2())) charge += Main.EliteT2Bonus.Value;
                     if (report.victimIsMiniboss()) charge += Main.MinibossBonus.Value;
                     if (report.victimIsChampion) charge += Main.BossBonus.Value;
@@ -137,6 +139,15 @@ namespace EvenFasterBossWait
                     c.EmitDelegate<Func<float, float>>((count) => Mathf.Min(count, Main.FocusedConvergenceRangeLimit.Value));
                 };
             }
+        }
+
+        private static float CheckVariant(CharacterBody body)
+        {
+            VAPI.Components.BodyVariantManager manager = body.GetComponent<VAPI.Components.BodyVariantManager>();
+            if (manager == null) return 0;
+            float ret = Main.VariantBonus.Value;
+            foreach (var v in manager.variantsInBody) ret *= v.variantTierDef.experienceMultiplier;
+            return ret - Main.VariantBonus.Value;
         }
     }
 }

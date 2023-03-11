@@ -9,7 +9,7 @@ By default, when you kill an enemy after the boss has been defeated, every kill 
 - Enhanced FasterBossWait features
     - Whether saved time should be re-added to run timer
     - Whether to use % values or seconds
-    - Bonus charge given per HP, Elite status, Miniboss/Champion status
+    - Bonus charge given per HP, Elite status, [Variant](https://thunderstore.io/package/Nebby/VarianceAPI/) status, Miniboss/Champion status
     - Reduction before the boss is killed / outside the teleporter range
     - Holdout Zone Time Multiplier per person, stage count and loop count
     - Holdout Zone Area Multiplier per person
@@ -22,8 +22,10 @@ By default, when you kill an enemy after the boss has been defeated, every kill 
     - Focused Convergence rate/range limit (vanilla limits both to 3 stacks)
     - Unlock interactables (after boss kill)
     - Unlock interactables inside void seeds
+    - Time Pauses when every player is near the charged teleporter (radius configurable)
 
 ## Changelog
+- 1.1.4: VariantAPI compat, charged time pause radius
 - 1.1.3: Bugfix
 - 1.1.2: Fixed logspam on simulacrum
 - 1.1.1: Bugfix, Kill Compensation General Scaling Multiplier

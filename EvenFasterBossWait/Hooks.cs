@@ -117,7 +117,7 @@ namespace EvenFasterBossWait
                 if (ChargeCredit.ContainsKey(self)) ChargeCredit.Remove(self);
                 orig(self);
             };
-            if (Main.FocusedConvergenceRateLimit.Value != 3 || Main.FocusedConvergenceRangeLimit.Value != 3)
+            if ((!Chainloader.PluginInfos.ContainsKey("BALLS.WellRoundedBalance") || !WRBConvergenceEnabled()) && (Main.FocusedConvergenceRateLimit.Value != 3 || Main.FocusedConvergenceRangeLimit.Value != 3))
             {
                 IL.RoR2.HoldoutZoneController.FocusConvergenceController.FixedUpdate += (il) =>
                 {
@@ -148,6 +148,11 @@ namespace EvenFasterBossWait
             float ret = Main.VariantBonus.Value;
             foreach (var v in manager.variantsInBody) ret *= v.variantTierDef.experienceMultiplier;
             return ret - Main.VariantBonus.Value;
+        }
+
+        public static bool WRBConvergenceEnabled()
+        {
+            return WellRoundedBalance.Items.Lunars.FocusedConvergence.instance.isEnabled;
         }
     }
 }

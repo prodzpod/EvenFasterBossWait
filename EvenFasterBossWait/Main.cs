@@ -11,13 +11,14 @@ namespace EvenFasterBossWait
     [BepInDependency(R2API.R2API.PluginGUID)]
     [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
     [BepInDependency("com.Nebby.VAPI", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("BALLS.WellRoundedBalance", BepInDependency.DependencyFlags.SoftDependency)]
     [NetworkCompatibility(CompatibilityLevel.EveryoneMustHaveMod)]
     public class Main : BaseUnityPlugin
     {
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "prodzpod";
         public const string PluginName = "FasterBossWait2";
-        public const string PluginVersion = "1.1.4";
+        public const string PluginVersion = "1.1.5";
         public static ManualLogSource Log;
         internal static PluginInfo pluginInfo;
         public static ConfigFile Config;
@@ -164,7 +165,12 @@ namespace EvenFasterBossWait
                 bool ret = orig(self);
                 if (TeleporterInteraction.instance?.isCharged ?? false && ret)
                 {
-                    foreach (var user in NetworkUser.instancesList) if ((TeleporterInteraction.instance.transform.position - user.GetCurrentBody().corePosition).magnitude > TeleporterTimestopArea.Value) return ret;
+                    foreach (var user in NetworkUser.instancesList)
+                    {
+                        CharacterBody body = user.GetCurrentBody();
+                        if (body == null) continue;
+                        if ((TeleporterInteraction.instance.transform.position - body.corePosition).magnitude > TeleporterTimestopArea.Value) return ret;
+                    }
                     return false;
                 }
                 return ret;

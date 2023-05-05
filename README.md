@@ -25,6 +25,7 @@ By default, when you kill an enemy after the boss has been defeated, every kill 
     - Time Pauses when every player is near the charged teleporter (radius configurable)
 
 ## Changelog
+- 1.1.5: WRB compat, fixed log spam with teleporter
 - 1.1.4: VariantAPI compat, charged time pause radius
 - 1.1.3: Bugfix
 - 1.1.2: Fixed logspam on simulacrum

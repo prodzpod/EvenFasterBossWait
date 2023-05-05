@@ -66,6 +66,9 @@
 		<Reference Include="VarianceAPI">
 			<HintPath>..\..\libs\VarianceAPI-nstrip.dll</HintPath>
 		</Reference>
+		<Reference Include="WellRoundedBalance">
+		  <HintPath>..\..\libs\WellRoundedBalance-nstrip.dll</HintPath>
+		</Reference>
 	</ItemGroup>
 	
 	  <ItemGroup>

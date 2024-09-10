@@ -1,7 +1,4 @@
-﻿using BepInEx.Bootstrap;
-using HarmonyLib;
-using Mono.Cecil.Cil;
-using MonoMod.Cil;
+﻿using HarmonyLib;
 using R2API;
 using RoR2;
 using System;
@@ -54,7 +51,7 @@ namespace EvenFasterBossWait
                 if (Run.instance is InfiniteTowerRun) return; // no simulacrum allowed!!!!
                 foreach (var info in Main.HoldoutMultipliers) if (self.gameObject.name.Contains(info.name)) ActiveZones.Add(self, info);
                 if (!ActiveZones.ContainsKey(self)) ActiveZones.Add(self, Main.DefaultHoldoutInfo);
-                BossKilled.Add(self, true);
+                BossKilled.Add(self, false);
                 ChargeCredit.Add(self, 0);
                 if (ActiveZones[self].time >= 0) self.baseChargeDuration = ActiveZones[self].time * (1 + (ActiveZones[self].mult * (
                       Main.Calc(Main.ModePerPerson.Value, Main.ValuePerPerson.Value, Run.instance.participatingPlayerCount)
@@ -62,7 +59,7 @@ namespace EvenFasterBossWait
                     * Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount))));
                 if (ActiveZones[self].area >= 0) self.baseRadius = ActiveZones[self].area
                     * (1 + (ActiveZones[self].mult * (Main.Calc(Main.ModePerPersonArea.Value, Main.ValuePerPersonArea.Value, Run.instance.participatingPlayerCount) - 1)));
-                if (ActiveZones[self].areaBoss >= 0) { self.calcRadius += (ref float radius) => { if (BossKilled[self]) radius *= ActiveZones[self].areaBoss / self.baseRadius; }; }
+                if (ActiveZones[self].areaBoss >= 0) { self.calcRadius += (ref float radius) => { if (BossKilled[self]) radius *= ActiveZones[self].areaBoss / ActiveZones[self].area; }; }
                 if (ActiveZones[self].multBoss >= 0) { self.calcChargeRate += (ref float rate) => { if (BossKilled[self]) rate *= ActiveZones[self].multBoss; }; }
                 self.calcAccumulatedCharge += (ref float charge) => { if (ChargeCredit[self] > 0) { charge += ChargeCredit[self]; ChargeCredit[self] = 0; } };
                 orig(self);
@@ -76,7 +73,6 @@ namespace EvenFasterBossWait
                     if (ActiveZones[zone].kill == 0 || report.victimIsBoss || zone.baseChargeDuration <= 0) continue;
                     float charge = Main.Value.Value + (report.victimBody.baseMaxHealth * Main.ValuePerHP.Value);
                     if (report.victimIsElite) charge += Main.EliteBonus.Value;
-                    if (Chainloader.PluginInfos.ContainsKey("com.Nebby.VAPI")) charge += CheckVariant(report.victimBody);
                     if (report.victimBody.affixes().Any(x => x.isT2())) charge += Main.EliteT2Bonus.Value;
                     if (report.victimIsMiniboss()) charge += Main.MinibossBonus.Value;
                     if (report.victimIsChampion) charge += Main.BossBonus.Value;
@@ -117,42 +113,6 @@ namespace EvenFasterBossWait
                 if (ChargeCredit.ContainsKey(self)) ChargeCredit.Remove(self);
                 orig(self);
             };
-            if ((!Chainloader.PluginInfos.ContainsKey("BALLS.WellRoundedBalance") || !WRBConvergenceEnabled()) && (Main.FocusedConvergenceRateLimit.Value != 3 || Main.FocusedConvergenceRangeLimit.Value != 3))
-            {
-                IL.RoR2.HoldoutZoneController.FocusConvergenceController.FixedUpdate += (il) =>
-                {
-                    ILCursor c = new ILCursor(il);
-                    c.GotoNext(x => x.MatchCall<Mathf>(nameof(Mathf.Min)));
-                    c.Remove();
-                    c.Emit(OpCodes.Pop);
-                };
-                if (Main.FocusedConvergenceRateLimit.Value >= 0) IL.RoR2.HoldoutZoneController.FocusConvergenceController.ApplyRate += (il) =>
-                {
-                    ILCursor c = new(il);
-                    c.GotoNext(MoveType.After, x => x.MatchLdfld(typeof(HoldoutZoneController.FocusConvergenceController), nameof(HoldoutZoneController.FocusConvergenceController.currentFocusConvergenceCount)), x => x.MatchConvR4());
-                    c.EmitDelegate<Func<float, float>>((count) => Mathf.Min(count, Main.FocusedConvergenceRateLimit.Value));
-                };
-                if (Main.FocusedConvergenceRangeLimit.Value >= 0) IL.RoR2.HoldoutZoneController.FocusConvergenceController.ApplyRadius += (il) =>
-                {
-                    ILCursor c = new(il);
-                    c.GotoNext(MoveType.After, x => x.MatchLdfld(typeof(HoldoutZoneController.FocusConvergenceController), nameof(HoldoutZoneController.FocusConvergenceController.currentFocusConvergenceCount)), x => x.MatchConvR4());
-                    c.EmitDelegate<Func<float, float>>((count) => Mathf.Min(count, Main.FocusedConvergenceRangeLimit.Value));
-                };
-            }
-        }
-
-        private static float CheckVariant(CharacterBody body)
-        {
-            VAPI.Components.BodyVariantManager manager = body.GetComponent<VAPI.Components.BodyVariantManager>();
-            if (manager == null) return 0;
-            float ret = Main.VariantBonus.Value;
-            foreach (var v in manager.variantsInBody) ret *= v.variantTierDef.experienceMultiplier;
-            return ret - Main.VariantBonus.Value;
-        }
-
-        public static bool WRBConvergenceEnabled()
-        {
-            return WellRoundedBalance.Items.Lunars.FocusedConvergence.instance.isEnabled;
         }
     }
 }

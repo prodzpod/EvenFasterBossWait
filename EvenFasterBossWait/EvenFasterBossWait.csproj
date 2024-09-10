@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>netstandard2.0</TargetFramework>
+		<TargetFramework>netstandard2.1</TargetFramework>
 		<LangVersion>preview</LangVersion>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
@@ -62,12 +62,6 @@
 		  </Reference>
 		<Reference Include="UnityEngine.ParticleSystemModule">
 			<HintPath>..\..\libs\UnityEngine.ParticleSystemModule-nstrip.dll</HintPath>
-		</Reference>
-		<Reference Include="VarianceAPI">
-			<HintPath>..\..\libs\VarianceAPI-nstrip.dll</HintPath>
-		</Reference>
-		<Reference Include="WellRoundedBalance">
-		  <HintPath>..\..\libs\WellRoundedBalance-nstrip.dll</HintPath>
 		</Reference>
 	</ItemGroup>
 	

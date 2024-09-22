@@ -19,10 +19,10 @@ namespace EvenFasterBossWait
     }
     public class Hooks
     {
-        public static List<MasterIndex> Minibosses = new();
-        public static Dictionary<HoldoutZoneController, Main.HoldoutMultiplierInfo> ActiveZones = new();
-        public static Dictionary<HoldoutZoneController, bool> BossKilled = new(); // API: set to true when "boss" is "killed", will auto trigger for teleporters
-        public static Dictionary<HoldoutZoneController, float> ChargeCredit = new(); // API: simply add to chargecredit to make time pass
+        public static List<MasterIndex> Minibosses = [];
+        public static Dictionary<HoldoutZoneController, Main.HoldoutMultiplierInfo> ActiveZones = [];
+        public static Dictionary<HoldoutZoneController, bool> BossKilled = []; // API: set to true when "boss" is "killed", will auto trigger for teleporters
+        public static Dictionary<HoldoutZoneController, float> ChargeCredit = []; // API: simply add to chargecredit to make time pass
         public static void Patch()
         {
             Run.onRunStartGlobal += (_) => { ActiveZones.Clear(); BossKilled.Clear(); ChargeCredit.Clear(); };
@@ -56,11 +56,11 @@ namespace EvenFasterBossWait
                 if (ActiveZones[self].time >= 0) self.baseChargeDuration = ActiveZones[self].time * (1 + (ActiveZones[self].mult * (
                       Main.Calc(Main.ModePerPerson.Value, Main.ValuePerPerson.Value, Run.instance.participatingPlayerCount)
                     * Main.Calc(Main.ModePerStage.Value, Main.ValuePerStage.Value, Run.instance.stageClearCount + 1)
-                    * Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount))));
+                    * (Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount + (Main.ModePerLoop.Value == Main.StackingMode.Linear ? 1 : 0))))) + (Main.ModePerLoop.Value == Main.StackingMode.Hyperbolic ? 1 : 0));
                 if (ActiveZones[self].area >= 0) self.baseRadius = ActiveZones[self].area
                     * (1 + (ActiveZones[self].mult * (Main.Calc(Main.ModePerPersonArea.Value, Main.ValuePerPersonArea.Value, Run.instance.participatingPlayerCount) - 1)));
-                if (ActiveZones[self].areaBoss >= 0) { self.calcRadius += (ref float radius) => { if (BossKilled[self]) radius *= ActiveZones[self].areaBoss / ActiveZones[self].area; }; }
                 if (ActiveZones[self].multBoss >= 0) { self.calcChargeRate += (ref float rate) => { if (BossKilled[self]) rate *= ActiveZones[self].multBoss; }; }
+                if (ActiveZones[self].areaBoss >= 0) { self.calcRadius += (ref float radius) => { if (BossKilled[self]) radius *= ActiveZones[self].areaBoss / ActiveZones[self].area; }; }
                 self.calcAccumulatedCharge += (ref float charge) => { if (ChargeCredit[self] > 0) { charge += ChargeCredit[self]; ChargeCredit[self] = 0; } };
                 orig(self);
             };
@@ -77,7 +77,7 @@ namespace EvenFasterBossWait
                     if (report.victimIsMiniboss()) charge += Main.MinibossBonus.Value;
                     if (report.victimIsChampion) charge += Main.BossBonus.Value;
                     charge *= ActiveZones[zone].kill;
-                    if (!BossKilled[zone]) charge *= Main.PreBossKillPenalty.Value;
+                    if (zone.gameObject.GetComponent<BossGroup>() != null && !BossKilled[zone]) charge *= Main.PreBossKillPenalty.Value;
                     if (!zone.IsInBounds(report.attackerBody.footPosition)) charge *= Main.OutsideRangePenalty.Value;
                     if (charge == 0) return;
                     ChargeCredit[zone] += charge * (Main.UseFixedTime.Value ? 1f / zone.baseChargeDuration : 0.01f);
@@ -112,6 +112,21 @@ namespace EvenFasterBossWait
                 if (BossKilled.ContainsKey(self)) BossKilled.Remove(self);
                 if (ChargeCredit.ContainsKey(self)) ChargeCredit.Remove(self);
                 orig(self);
+            };
+            HoldoutZoneController.FocusConvergenceController.cap = int.MaxValue;
+            On.RoR2.HoldoutZoneController.FocusConvergenceController.ApplyRate += (On.RoR2.HoldoutZoneController.FocusConvergenceController.orig_ApplyRate orig, MonoBehaviour self, ref float rate) =>
+            {
+                var count = ((HoldoutZoneController.FocusConvergenceController)self).currentFocusConvergenceCount;
+                if (Main.FocusedConvergenceRateLimit.Value >= 0) ((HoldoutZoneController.FocusConvergenceController)self).currentFocusConvergenceCount = (int)MathF.Min(count, Main.FocusedConvergenceRateLimit.Value);
+                orig(self, ref rate);
+                ((HoldoutZoneController.FocusConvergenceController)self).currentFocusConvergenceCount = count;
+            };
+            On.RoR2.HoldoutZoneController.FocusConvergenceController.ApplyRadius += (On.RoR2.HoldoutZoneController.FocusConvergenceController.orig_ApplyRadius orig, MonoBehaviour self, ref float radius) =>
+            {
+                var count = ((HoldoutZoneController.FocusConvergenceController)self).currentFocusConvergenceCount;
+                if (Main.FocusedConvergenceRangeLimit.Value >= 0) ((HoldoutZoneController.FocusConvergenceController)self).currentFocusConvergenceCount = (int)MathF.Min(count, Main.FocusedConvergenceRangeLimit.Value);
+                orig(self, ref radius);
+                ((HoldoutZoneController.FocusConvergenceController)self).currentFocusConvergenceCount = count;
             };
         }
     }

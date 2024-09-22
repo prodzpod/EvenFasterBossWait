@@ -16,7 +16,7 @@ namespace EvenFasterBossWait
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "prodzpod";
         public const string PluginName = "FasterBossWait2";
-        public const string PluginVersion = "1.1.5";
+        public const string PluginVersion = "1.1.7";
         public static ManualLogSource Log;
         internal static PluginInfo pluginInfo;
         public static ConfigFile Config;
@@ -218,8 +218,8 @@ namespace EvenFasterBossWait
 
             // thank god FH teleporters aren't a holdout. Based and plasmapilled!
 
-            HoldoutMultipliers = new()
-            {
+            HoldoutMultipliers =
+            [
                 new HoldoutMultiplierInfo()
                 {
                     name = "Teleporter1",
@@ -310,7 +310,7 @@ namespace EvenFasterBossWait
                     area = LocusArea.Value,
                     areaBoss = -1
                 }
-            };
+            ];
             Hooks.Patch();
         }
 

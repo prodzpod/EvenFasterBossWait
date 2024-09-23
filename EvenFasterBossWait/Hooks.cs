@@ -53,14 +53,21 @@ namespace EvenFasterBossWait
                 if (!ActiveZones.ContainsKey(self)) ActiveZones.Add(self, Main.DefaultHoldoutInfo);
                 BossKilled.Add(self, false);
                 ChargeCredit.Add(self, 0);
-                if (ActiveZones[self].time >= 0) self.baseChargeDuration = ActiveZones[self].time * (1 + (ActiveZones[self].mult * (
-                      Main.Calc(Main.ModePerPerson.Value, Main.ValuePerPerson.Value, Run.instance.participatingPlayerCount)
-                    * Main.Calc(Main.ModePerStage.Value, Main.ValuePerStage.Value, Run.instance.stageClearCount + 1)
-                    * (Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount + (Main.ModePerLoop.Value == Main.StackingMode.Linear ? 1 : 0))))) + (Main.ModePerLoop.Value == Main.StackingMode.Hyperbolic ? 1 : 0));
+                if (ActiveZones[self].time >= 0) self.baseChargeDuration = ActiveZones[self].time * (ActiveZones[self].mult * (
+                      Main.Calc(Main.ModePerPerson.Value, Main.ValuePerPerson.Value, Run.instance.participatingPlayerCount - 1)
+                    * Main.Calc(Main.ModePerStage.Value, Main.ValuePerStage.Value, Run.instance.stageClearCount)
+                    * Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount)));
                 if (ActiveZones[self].area >= 0) self.baseRadius = ActiveZones[self].area
-                    * (1 + (ActiveZones[self].mult * (Main.Calc(Main.ModePerPersonArea.Value, Main.ValuePerPersonArea.Value, Run.instance.participatingPlayerCount) - 1)));
-                if (ActiveZones[self].multBoss >= 0) { self.calcChargeRate += (ref float rate) => { if (BossKilled[self]) rate *= ActiveZones[self].multBoss; }; }
-                if (ActiveZones[self].areaBoss >= 0) { self.calcRadius += (ref float radius) => { if (BossKilled[self]) radius *= ActiveZones[self].areaBoss / ActiveZones[self].area; }; }
+                    * (ActiveZones[self].mult * Main.Calc(Main.ModePerPersonArea.Value, Main.ValuePerPersonArea.Value, Run.instance.participatingPlayerCount));
+                if (self.gameObject.GetComponent<BossGroup>() != null && ActiveZones[self].multBoss >= 0) { self.calcChargeRate += (ref float rate) => { if (BossKilled[self]) rate *= ActiveZones[self].multBoss; }; }
+                if (self.gameObject.GetComponent<BossGroup>() != null && ActiveZones[self].areaBoss >= 0) { self.calcRadius += (ref float radius) => { if (BossKilled[self]) radius *= ActiveZones[self].areaBoss / ActiveZones[self].area; }; }
+                if (Main.DebugMode.Value)
+                {
+                    Main.Log.LogInfo("Holdout Zone Begin, boss: " + self.gameObject.GetComponent<BossGroup>() != null);
+                    Main.Log.LogInfo($"Zone Info ({ActiveZones[self].name}): {ActiveZones[self].time} time, {ActiveZones[self].mult} mult, {ActiveZones[self].area} area, {ActiveZones[self].multBoss} multBoss, {ActiveZones[self].areaBoss} areaBoss");
+                    Main.Log.LogInfo($"Config: {Main.Calc(Main.ModePerPerson.Value, Main.ValuePerPerson.Value, Run.instance.participatingPlayerCount - 1)}({Main.ModePerPerson.Value} {Main.ValuePerPerson.Value}x{Run.instance.participatingPlayerCount - 1}) / {Main.Calc(Main.ModePerPersonArea.Value, Main.ValuePerPersonArea.Value, Run.instance.participatingPlayerCount)}({Main.ModePerPersonArea.Value} {Main.ValuePerPersonArea.Value}x{Run.instance.participatingPlayerCount - 1})(area) per person, {Main.Calc(Main.ModePerStage.Value, Main.ValuePerStage.Value, Run.instance.stageClearCount)}({Main.ModePerStage.Value} {Main.ValuePerStage.Value}x{Run.instance.stageClearCount}) per stage, {Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount)}({Main.ModePerLoop.Value} {Main.ValuePerLoop.Value}x{Run.instance.loopClearCount}) per loop");
+                    Main.Log.LogInfo($"Result: {self.baseChargeDuration}(x{ActiveZones[self].multBoss}b) time, {self.baseRadius}(x{ActiveZones[self].areaBoss / ActiveZones[self].area}b) area");
+                }
                 self.calcAccumulatedCharge += (ref float charge) => { if (ChargeCredit[self] > 0) { charge += ChargeCredit[self]; ChargeCredit[self] = 0; } };
                 orig(self);
             };
@@ -70,17 +77,30 @@ namespace EvenFasterBossWait
                 if (!TeamManager.IsTeamEnemy(TeamIndex.Player, report.victimBody.teamComponent.teamIndex) || report.attackerBody.teamComponent.teamIndex != TeamIndex.Player) return;
                 foreach (var zone in ActiveZones.Keys)
                 {
-                    if (ActiveZones[zone].kill == 0 || report.victimIsBoss || zone.baseChargeDuration <= 0) continue;
+                    if (report.victimIsBoss || zone.baseChargeDuration <= 0) continue;
+                    if (Main.DebugMode.Value) Main.Log.LogInfo("Kill Credited, base: " + ActiveZones[zone].kill);
+                    if (ActiveZones[zone].kill == 0) continue;
                     float charge = Main.Value.Value + (report.victimBody.baseMaxHealth * Main.ValuePerHP.Value);
+                    if (Main.DebugMode.Value) Main.Log.LogInfo($"base: {Main.Value.Value}({Main.Value.Value}+{report.victimBody.baseMaxHealth}x{Main.ValuePerHP.Value})");
                     if (report.victimIsElite) charge += Main.EliteBonus.Value;
                     if (report.victimBody.affixes().Any(x => x.isT2())) charge += Main.EliteT2Bonus.Value;
                     if (report.victimIsMiniboss()) charge += Main.MinibossBonus.Value;
                     if (report.victimIsChampion) charge += Main.BossBonus.Value;
+                    if (Main.DebugMode.Value) Main.Log.LogInfo("bonuses: "
+                        + (report.victimIsElite ? $"+{Main.EliteBonus.Value} (elite)" : "")
+                        + (report.victimBody.affixes().Any(x => x.isT2()) ? $"+{Main.EliteT2Bonus.Value} (T2)" : "")
+                        + (report.victimIsMiniboss() ? $"+{Main.MinibossBonus.Value} (miniboss)" : "")
+                        + (report.victimIsChampion ? $"+{Main.BossBonus.Value} (champion)" : ""));
                     charge *= ActiveZones[zone].kill;
                     if (zone.gameObject.GetComponent<BossGroup>() != null && !BossKilled[zone]) charge *= Main.PreBossKillPenalty.Value;
                     if (!zone.IsInBounds(report.attackerBody.footPosition)) charge *= Main.OutsideRangePenalty.Value;
+                    if (Main.DebugMode.Value) Main.Log.LogInfo("multipliers: " + ActiveZones[zone].kill
+                        + (zone.gameObject.GetComponent<BossGroup>() != null && !BossKilled[zone] ? $"x{Main.PreBossKillPenalty.Value} (prebosskill)" : "")
+                        + (!zone.IsInBounds(report.attackerBody.footPosition) ? $"x{Main.OutsideRangePenalty.Value} (outsiderange)" : "")
+                        + (Main.UseFixedTime.Value ? $"x1s(out of {zone.baseChargeDuration})" : "x1%"));
                     if (charge == 0) return;
                     ChargeCredit[zone] += charge * (Main.UseFixedTime.Value ? 1f / zone.baseChargeDuration : 0.01f);
+                    if (Main.DebugMode.Value) Main.Log.LogInfo("Return:" + charge * (Main.UseFixedTime.Value ? 1f / zone.baseChargeDuration : 0.01f));
                     if (Main.CompensateKills.Value != 0)
                     {
                         if (!Main.UseFixedTime.Value)
@@ -89,12 +109,25 @@ namespace EvenFasterBossWait
                             HoldoutZoneController.CalcChargeRateDelegate calcChargeRate = AccessTools.FieldRefAccess<HoldoutZoneController.CalcChargeRateDelegate>(typeof(HoldoutZoneController), nameof(HoldoutZoneController.calcChargeRate))(zone);
                             calcChargeRate?.Invoke(ref rate);
                             charge *= 0.01f / rate;
+                            if (Main.DebugMode.Value) Main.Log.LogInfo("ChargeRate accessed");
                         }
-                        if (Main.GeneralScalingCompensation.Value != 0) charge /= Mathf.Lerp(1 + (ActiveZones[zone].mult * (
-                              Main.Calc(Main.ModePerPerson.Value, Main.ValuePerPerson.Value, Run.instance.participatingPlayerCount)
-                            * Main.Calc(Main.ModePerStage.Value, Main.ValuePerStage.Value, Run.instance.stageClearCount + 1)
-                            * Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount))), 1, Main.GeneralScalingCompensation.Value);
+                        if (Main.GeneralScalingCompensation.Value != 0) charge /= Mathf.Lerp(ActiveZones[zone].mult * (
+                              Main.Calc(Main.ModePerPerson.Value, Main.ValuePerPerson.Value, Run.instance.participatingPlayerCount + 1)
+                            * Main.Calc(Main.ModePerStage.Value, Main.ValuePerStage.Value, Run.instance.stageClearCount)
+                            * Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount)), 1, Main.GeneralScalingCompensation.Value);
                         Run.instance.SetRunStopwatch(Run.instance.GetRunStopwatch() + (charge * Main.CompensateKills.Value));
+                        if (Main.DebugMode.Value)
+                        {
+                            Main.Log.LogInfo("Time Compensated");
+                            Main.Log.LogInfo($"Config: {Main.Calc(Main.ModePerPerson.Value, Main.ValuePerPerson.Value, Run.instance.participatingPlayerCount - 1)}({Main.ModePerPerson.Value} {Main.ValuePerPerson.Value}x{Run.instance.participatingPlayerCount - 1}) / {Main.Calc(Main.ModePerPersonArea.Value, Main.ValuePerPersonArea.Value, Run.instance.participatingPlayerCount)}({Main.ModePerPersonArea.Value} {Main.ValuePerPersonArea.Value}x{Run.instance.participatingPlayerCount - 1})(area) per person, {Main.Calc(Main.ModePerStage.Value, Main.ValuePerStage.Value, Run.instance.stageClearCount)}({Main.ModePerStage.Value} {Main.ValuePerStage.Value}x{Run.instance.stageClearCount}) per stage, {Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount)}({Main.ModePerLoop.Value} {Main.ValuePerLoop.Value}x{Run.instance.loopClearCount}) per loop");
+                            Main.Log.LogInfo($"Result: a{ActiveZones[zone].mult * (
+                              Main.Calc(Main.ModePerPerson.Value, Main.ValuePerPerson.Value, Run.instance.participatingPlayerCount + 1)
+                            * Main.Calc(Main.ModePerStage.Value, Main.ValuePerStage.Value, Run.instance.stageClearCount)
+                            * Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount))}, b{Mathf.Lerp(ActiveZones[zone].mult * (
+                              Main.Calc(Main.ModePerPerson.Value, Main.ValuePerPerson.Value, Run.instance.participatingPlayerCount + 1)
+                            * Main.Calc(Main.ModePerStage.Value, Main.ValuePerStage.Value, Run.instance.stageClearCount)
+                            * Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount)), 1, Main.GeneralScalingCompensation.Value)}({ActiveZones[zone].mult} mult), charge{charge}, d{Main.CompensateKills.Value}");
+                        }
                     }
                 }
             };

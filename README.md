@@ -25,6 +25,7 @@ By default, when you kill an enemy after the boss has been defeated, every kill 
     - Time Pauses when every player is near the charged teleporter (radius configurable)
 
 ## Changelog
+- 1.1.8: fixed a lot of the math
 - 1.1.7: fixed multiplier per loop, focused convergence tweaks, non-teleporter non-boss check
 - 1.1.6: made to work in SotS, fixed bosskill multiplier being applied without killing the boss
 - 1.1.5: WRB compat, fixed log spam with teleporter

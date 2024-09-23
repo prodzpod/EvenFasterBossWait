@@ -1,6 +1,6 @@
 {
 	"name": "FasterBossWait2",
-	"version_number": "1.1.7",
+	"version_number": "1.1.8",
 	"website_url": "https://github.com/prodzpod/EvenFasterBossWait",
 	"description": "Rewrite/Continuation of FasterBossWait. Highly configurable.",
 	"dependencies": [

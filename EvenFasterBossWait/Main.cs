@@ -16,7 +16,7 @@ namespace EvenFasterBossWait
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "prodzpod";
         public const string PluginName = "FasterBossWait2";
-        public const string PluginVersion = "1.1.7";
+        public const string PluginVersion = "1.1.8";
         public static ManualLogSource Log;
         internal static PluginInfo pluginInfo;
         public static ConfigFile Config;
@@ -86,6 +86,7 @@ namespace EvenFasterBossWait
         public static ConfigEntry<float> LocusMult;
         public static ConfigEntry<float> LocusKill;
         public static ConfigEntry<float> LocusArea;
+        public static ConfigEntry<bool> DebugMode;
 
         public static List<HoldoutMultiplierInfo> HoldoutMultipliers; // for interop
         public struct HoldoutMultiplierInfo
@@ -140,13 +141,13 @@ namespace EvenFasterBossWait
             UnlockInteractablesPostBoss = Config.Bind("Unlock Interactables", "Unlock Interactables Post Boss", false, "Unlock interactables with a teleporter enabled.");
             UnlockVoidSeeds = Config.Bind("Unlock Interactables", "Unlock Void Seeds", false, "Unlock interactables with void seed enabled.");
 
-            ModePerPerson = Config.Bind("General Scaling", "Per Person Multiplier Mode", StackingMode.Exponential, "Linear: Value*Count, Exponential: Value^Count, Hyperbolic: Value*(Count/(Count+1)), Asymptotic: Value - (Value-1)*(1-0.5^Count)");
+            ModePerPerson = Config.Bind("General Scaling", "Per Person Multiplier Mode", StackingMode.Exponential, "Linear: Value*Count+1, Exponential: Value^Count, Hyperbolic: Value*(Count/(Count+1))+1, Asymptotic: Value - (Value-1)*(1-0.5^Count)");
             ValuePerPerson = Config.Bind("General Scaling", "Multiplier Per Person", 1f, "For people who are well coordinated?? idk");
-            ModePerPersonArea = Config.Bind("General Scaling", "Per Person Area Multiplier Mode", StackingMode.Exponential, "Linear: Value*Count, Exponential: Value^Count, Hyperbolic: Value*(Count/(Count+1)), Asymptotic: Value - (Value-1)*(1-0.5^Count)");
+            ModePerPersonArea = Config.Bind("General Scaling", "Per Person Area Multiplier Mode", StackingMode.Exponential, "Linear: Value*Count+1, Exponential: Value^Count, Hyperbolic: Value*(Count/(Count+1))+1, Asymptotic: Value - (Value-1)*(1-0.5^Count)");
             ValuePerPersonArea = Config.Bind("General Scaling", "Area Multiplier Per Person", 1f, "For people who are well coordinated?? idk");
-            ModePerStage = Config.Bind("General Scaling", "Per Stage Multiplier Mode", StackingMode.Exponential, "Linear: Value*Count, Exponential: Value^Count, Hyperbolic: Value*(Count/(Count+1)), Asymptotic: Value - (Value-1)*(1-0.5^Count)");
+            ModePerStage = Config.Bind("General Scaling", "Per Stage Multiplier Mode", StackingMode.Exponential, "Linear: Value*Count+1, Exponential: Value^Count, Hyperbolic: Value*(Count/(Count+1))+1, Asymptotic: Value - (Value-1)*(1-0.5^Count)");
             ValuePerStage = Config.Bind("General Scaling", "Multiplier Per Stage", 1f, "multiplier per stage.");
-            ModePerLoop = Config.Bind("General Scaling", "Per Loop Multiplier Mode", StackingMode.Linear, "Linear: Value*Count, Exponential: Value^Count, Hyperbolic: Value*(Count/(Count+1)), Asymptotic: Value - (Value-1)*(1-0.5^Count)");
+            ModePerLoop = Config.Bind("General Scaling", "Per Loop Multiplier Mode", StackingMode.Linear, "Linear: Value*Count+1, Exponential: Value^Count, Hyperbolic: Value*(Count/(Count+1))+1, Asymptotic: Value - (Value-1)*(1-0.5^Count)");
             ValuePerLoop = Config.Bind("General Scaling", "Multiplier Per Loop", 1f, "This is also a ChargeInHalf continuation");
             FocusedConvergenceRateLimit = Config.Bind("General Scaling", "Focused Convergence Rate Max Stack", -1, "Set to -1 for infinite.");
             FocusedConvergenceRangeLimit = Config.Bind("General Scaling", "Focused Convergence Range Max Stack", 3, "Set to -1 for infinite.");
@@ -158,6 +159,8 @@ namespace EvenFasterBossWait
             TeleporterMultBoss = Config.Bind("Zones", "Teleporter Charge Rate post Bosskill", 1f, "");
             TeleporterAreaBoss = Config.Bind("Zones", "Teleporter Base Area post Bosskill", 60f, "");
             TeleporterTimestopArea = Config.Bind("Zones", "Telepoter Time Stop Area", 12f, "Radius in meters. Set to 0 to disable.");
+
+            DebugMode = Config.Bind("If some configs dont work enable this", "Debug Mode", false, "Enable Detailed Log Messages.");
             if (TeleporterTimestopArea.Value > 0) On.RoR2.Run.ShouldUpdateRunStopwatch += (orig, self) =>
             {
                 bool ret = orig(self);
@@ -169,6 +172,7 @@ namespace EvenFasterBossWait
                         if (body == null) continue;
                         if ((TeleporterInteraction.instance.transform.position - body.corePosition).magnitude > TeleporterTimestopArea.Value) return ret;
                     }
+                    if (DebugMode.Value) Main.Log.LogInfo("Time Stopped");
                     return false;
                 }
                 return ret;
@@ -319,11 +323,11 @@ namespace EvenFasterBossWait
             switch (mode)
             {
                 case StackingMode.Linear:
-                    return value * count;
+                    return value * count + 1;
                 case StackingMode.Exponential:
                     return Mathf.Pow(value, count);
                 case StackingMode.Hyperbolic:
-                    return value * count / (count + 1);
+                    return value * count / (count + 1) + 1;
                 case StackingMode.Asymptotic:
                     return (1 - value) * (1 - Mathf.Pow(2, -count)) + value;
             }

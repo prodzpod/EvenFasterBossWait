@@ -53,12 +53,12 @@ namespace EvenFasterBossWait
                 if (!ActiveZones.ContainsKey(self)) ActiveZones.Add(self, Main.DefaultHoldoutInfo);
                 BossKilled.Add(self, false);
                 ChargeCredit.Add(self, 0);
-                if (ActiveZones[self].time >= 0) self.baseChargeDuration = ActiveZones[self].time * (ActiveZones[self].mult * (
+                if (ActiveZones[self].time >= 0) self.baseChargeDuration = ActiveZones[self].time * Mathf.Lerp(1, 
                       Main.Calc(Main.ModePerPerson.Value, Main.ValuePerPerson.Value, Run.instance.participatingPlayerCount - 1)
                     * Main.Calc(Main.ModePerStage.Value, Main.ValuePerStage.Value, Run.instance.stageClearCount)
-                    * Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount)));
-                if (ActiveZones[self].area >= 0) self.baseRadius = ActiveZones[self].area
-                    * (ActiveZones[self].mult * Main.Calc(Main.ModePerPersonArea.Value, Main.ValuePerPersonArea.Value, Run.instance.participatingPlayerCount));
+                    * Main.Calc(Main.ModePerLoop.Value, Main.ValuePerLoop.Value, Run.instance.loopClearCount), ActiveZones[self].mult);
+                if (ActiveZones[self].area >= 0) self.baseRadius = ActiveZones[self].area * Mathf.Lerp(1, 
+                    Main.Calc(Main.ModePerPersonArea.Value, Main.ValuePerPersonArea.Value, Run.instance.participatingPlayerCount), ActiveZones[self].mult);
                 if (self.gameObject.GetComponent<BossGroup>() != null && ActiveZones[self].multBoss >= 0) { self.calcChargeRate += (ref float rate) => { if (BossKilled[self]) rate *= ActiveZones[self].multBoss; }; }
                 if (self.gameObject.GetComponent<BossGroup>() != null && ActiveZones[self].areaBoss >= 0) { self.calcRadius += (ref float radius) => { if (BossKilled[self]) radius *= ActiveZones[self].areaBoss / ActiveZones[self].area; }; }
                 if (Main.DebugMode.Value)
